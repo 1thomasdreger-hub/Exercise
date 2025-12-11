@@ -2,7 +2,9 @@ const API_BASE = "";
 
 async function loadActivities() {
   try {
-    const response = await fetch(`${API_BASE}/activities`);
+    const response = await fetch(`${API_BASE}/activities`, {
+      cache: 'no-store'
+    });
     const activities = await response.json();
     displayActivities(activities);
     populateActivitySelect(activities);
@@ -26,7 +28,7 @@ function displayActivities(activities) {
     const participants = details.participants || [];
     const participantsList =
       participants.length > 0
-        ? participants.map((p) => `<li>${p}</li>`).join("")
+        ? participants.map((p) => `<li><span>${p}</span><button class="delete-btn" data-activity="${name}" data-email="${p}" title="Remove participant">✕</button></li>`).join("")
         : "<li><em>No participants yet</em></li>";
 
     card.innerHTML = `
@@ -81,7 +83,7 @@ document.getElementById("signup-form").addEventListener("submit", async (e) => {
     if (response.ok) {
       showMessage("Successfully signed up!", "success");
       document.getElementById("signup-form").reset();
-      loadActivities();
+      await loadActivities();
     } else {
       showMessage(data.detail || "Sign up failed", "error");
     }
@@ -98,3 +100,33 @@ function showMessage(text, type) {
 }
 
 loadActivities();
+
+// Handle delete button clicks
+document.addEventListener("click", async (e) => {
+  if (e.target.classList.contains("delete-btn")) {
+    const activity = e.target.dataset.activity;
+    const email = e.target.dataset.email;
+
+    if (!confirm(`Remove ${email} from ${activity}?`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${API_BASE}/activities/${encodeURIComponent(activity)}/unregister?email=${encodeURIComponent(email)}`,
+        { method: "DELETE" }
+      );
+      const data = await response.json();
+
+      if (response.ok) {
+        showMessage("Participant removed successfully!", "success");
+        await loadActivities();
+      } else {
+        showMessage(data.detail || "Failed to remove participant", "error");
+      }
+    } catch (error) {
+      showMessage("An error occurred. Please try again.", "error");
+      console.error("Error:", error);
+    }
+  }
+});
